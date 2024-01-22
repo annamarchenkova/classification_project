@@ -375,81 +375,79 @@ def drop_collinear_features(df: pd.DataFrame, cnf: dict) -> pd.DataFrame:
 ##########################################################################################
 # --------------------------------  FEATURE SELECTION  --------------------------------- #
 
-def feature_selection_shap(
-    X_train, 
-    y_train, 
-    X_test, 
-    y_test, 
-    cnf, 
-    features, 
-    cat_features
-    ):
-    '''Select most relevant fetures using shap method'''
-    
+
+def feature_selection_shap(X_train, y_train, X_test, y_test, cnf, features, cat_features):
+    """
+    Select the most relevant features using the SHAP method.
+
+    Args:
+        X_train (array-like): The training input samples.
+        y_train (array-like): The target values for the training input samples.
+        X_test (array-like): The testing input samples.
+        y_test (array-like): The target values for the testing input samples.
+        cnf (dict): A dictionary containing the configuration parameters.
+        features (list): A list of feature names.
+        cat_features (list): A list of categorical feature names.
+
+    Returns:
+        tuple: A tuple containing the selected feature names and the trained model.
+    """
     train_pool = Pool(
         X_train, y_train,
         feature_names=features,
         cat_features=cat_features
     )
-
     test_pool = Pool(
         X_test, y_test,
         feature_names=features,
         cat_features=cat_features
     )
-    
+
     feat_idx_list = np.arange(train_pool.num_col())
 
     summary, model = select_features_with_shap(
-        cnf['n_features_2select'], 
-        train_pool, 
-        test_pool, 
-        algorithm=EFeaturesSelectionAlgorithm.RecursiveByShapValues, 
-        steps=cnf['steps'], 
+        cnf['n_features_2select'],
+        train_pool,
+        test_pool,
+        algorithm=EFeaturesSelectionAlgorithm.RecursiveByShapValues,
+        steps=cnf['steps'],
         iterations=cnf['iterations'],
         feat_for_select=feat_idx_list
     )
+
     sel_features = summary.get('selected_features_names')
+
     return sel_features, model
 
+def select_features_with_shap(n, train_pool, test_pool, algorithm, iterations=250, feat_for_select=None, flg_final_model=True, steps=3, **kwargs):
+    """
+    Perform recursive feature selection with CatBoost using SHAP values.
 
-def select_features_with_shap(
-        n,
-        train_pool, test_pool,
-        algorithm,
-        iterations=250,
-        feat_for_select=None,
-        flg_final_model=True, 
-        steps=3, 
-        **kwargs):
-    """
-    Perform recursive feature selection with CatBoost using SHAP values. 
-    :return: the summary of the search as a Dict, and possibly a model trained on the dataset with the selected
-                features only.
-    
-    :n: (int) number of features to select
-    :train_pool: (catboost.Pool) train data as catboost Pool
-    :test_pool: (catboost.Pool) validation data as catboost Pool
-    :algorithm: (catboost.EFeaturesSelectionAlgorithm) which algorithm to use for recursive feature selection
-    :iterations: (int, default=250) number of iterations to perform
-    :feat_for_select: (list, default=None) index of features to be considered in feature selection,
-    :flg_final_model: (bool, default=True) whether to fit the final model (i.e. with only selected feautures) or not
+    :param n: (int) number of features to select
+    :param train_pool: (catboost.Pool) train data as catboost Pool
+    :param test_pool: (catboost.Pool) validation data as catboost Pool
+    :param algorithm: (catboost.EFeaturesSelectionAlgorithm) which algorithm to use for recursive feature selection
+    :param iterations: (int, default=250) number of iterations to perform
+    :param feat_for_select: (list, default=None) index of features to be considered in feature selection,
+    :param flg_final_model: (bool, default=True) whether to fit the final model (i.e. with only selected feautures) or not
         --> note that if `True` the final model is returned as well
-    :steps: (int, default=3) number of steps
-    :kwargs: additional arguments for the `.select_features()` method
+    :param steps: (int, default=3) number of steps
+    :param kwargs: additional arguments for the `.select_features()` method
+
+    :return: the summary of the search as a Dict, and possibly a model trained on the dataset with the selected
+             features only.
     """
-    
     if feat_for_select is None:
         feat_for_select = list()
-    
+
     print('Algorithm:', algorithm)
-    
+
     model = CatBoostClassifier(
         iterations=iterations,
         loss_function='Logloss',
-        random_seed=42, 
+        random_seed=42,
     )
-    
+
     summary = model.select_features(
         train_pool,
         eval_set=test_pool,
@@ -463,45 +461,48 @@ def select_features_with_shap(
         plot=False,
         **kwargs
     )
-    
+
     res = (summary, model) if flg_final_model else summary
 
     return res
 
+def f_selection_catboost_shap(df, y, test_size=0.2, shuffle=True, n_features=30, steps=5, iterations=500, random_state=42):
+    """
+    Selects the most important features using the CatBoost algorithm and SHAP values.
 
-def f_selection_catboost_shap(
-        df, y,
-        test_size=0.2,
-        shuffle=True,
-        n_features=30,
-        steps=5,
-        iterations=500,
-        random_state=42):
-    
+    Args:
+        df (pandas.DataFrame): The input dataframe.
+        y (pandas.Series): The target variable.
+        test_size (float, optional): The proportion of the dataset to include in the test split. Defaults to 0.2.
+        shuffle (bool, optional): Whether or not to shuffle the data before splitting. Defaults to True.
+        n_features (int, optional): The number of features to select. Defaults to 30.
+        steps (int, optional): The number of steps to take in the recursive feature selection process. Defaults to 5.
+        iterations (int, optional): The number of iterations to run the CatBoost algorithm. Defaults to 500.
+        random_state (int, optional): The random state to use for reproducibility. Defaults to 42.
+
+    Returns:
+        tuple: A tuple containing the summary of the selected features and the trained CatBoost model.
+    """
     features = df.columns.to_list()
     cat_features = [f for f, dtype in df.dtypes.items() if dtype=='O']
-    
     X_train, X_test, y_train, y_test = train_test_split(
         df, y,
         test_size=test_size,
         stratify=y,
-        shuffle=shuffle, random_state=random_state
+        shuffle=shuffle,
+        random_state=random_state
     )
-
     train_pool = Pool(
         X_train, y_train,
         feature_names=features,
         cat_features=cat_features
     )
-
     test_pool = Pool(
         X_test, y_test,
         feature_names=features,
         cat_features=cat_features
     )
-    
     feat_idx_list = np.arange(train_pool.num_col())
-
     summary, model = select_features_with_shap(
         n_features,
         train_pool, test_pool,
@@ -509,6 +510,5 @@ def f_selection_catboost_shap(
         steps=steps, iterations=iterations,
         feat_for_select=feat_idx_list
     )
-
     return summary, model
 
