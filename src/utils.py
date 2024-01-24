@@ -512,3 +512,61 @@ def f_selection_catboost_shap(df, y, test_size=0.2, shuffle=True, n_features=30,
     )
     return summary, model
 
+##########################################################################################
+# ------------------------------------  PLOTTING  ------------------------------------- #
+def save_shap_plot(X, shap_values, fig_path=FIGURES_DIR, prefix=''):
+    """save_shap_plot
+
+    Args:
+        X (_type_): _description_
+        shap_values (_type_): _description_
+        fig_path (_type_, optional): _description_. Defaults to FIGURES_DIR.
+    """
+
+    shap.summary_plot(shap_values, X, show=False)
+    plt.savefig(os.path.join(fig_path, f'shap_plot_{prefix}.png'), pad_inches=0.2, bbox_inches='tight')
+
+
+def optuna_visualization_plots(study, save=True, save_dir=FIGURES_DIR):
+    """_summary_
+
+    Args:
+        study (_type_): _description_
+        save (bool, optional): _description_. Defaults to True.
+        save_dir (_type_, optional): _description_. Defaults to FIGURES_DIR.
+    """
+    fig = optuna.visualization.plot_param_importances(study)
+    fig1 = optuna.visualization.plot_optimization_history(study)
+    plt.show(fig)
+    plt.show(fig1)
+
+    if save:
+        fig.savefig(os.path.join(save_dir, 'optuna_param_importances.png'))
+        fig1.savefig(os.path.join(save_dir, 'optuna_optimization_history.png'))
+    
+
+def feature_importance_plot(model, figsize=(10,15), save=True, save_dir=FIGURES_DIR, prefix=''):
+    """Plot feature importance and safe the plot.
+
+    Args:
+        model (_type_): _description_
+        save (bool, optional): _description_. Defaults to True.
+        save_dir (_type_, optional): _description_. Defaults to FIGURES_DIR.
+    """
+    if prefix == '':
+        prefix = str(dt.today().date())
+        
+    f_importance_df = pd.DataFrame(
+    [model.feature_names_, model.feature_importances_],
+    ['features', 'f_importance']
+    ).T.sort_values(by='f_importance', ascending=True)
+
+    if save:
+        plt.figure(figsize=figsize)
+        plt.barh(f_importance_df.features, f_importance_df.f_importance)
+        plt.savefig(
+            os.path.join(save_dir, f'feature_importance_{prefix}.png'), 
+            bbox_inches='tight'
+            )
+        
+
