@@ -634,4 +634,37 @@ def calculate_shap(X, y, model, save=True, save_dir=FIGURES_DIR, prefix=''):
             prefix = str(dt.today().date())
         save_shap_plot(X, shap_values, fig_path=save_dir, prefix=prefix)
 
+##########################################################################################
+# ------------------------------------  MLFLOW  ---------------------------------------- #
+        
+def get_mlflow_experiment(experiment_name, create=True, verbose=True):
+    # experiment name: unique and case sensitive
+    # Create an experiment if not existent
+    experiment = mlflow.get_experiment_by_name(experiment_name)
+    if experiment:
+        experiment_id = experiment.experiment_id
+    else:
+        if create:
+            experiment_id = mlflow.create_experiment(
+                experiment_name,
+                artifact_location=Path.cwd().joinpath("mlruns").as_uri(),
+                tags={"version": "v1", "priority": "P1"},
+            )
+        else:
+            print(f"Experiment {experiment_name} does not exist. To create it put create=True")
+            return None
+        
+    if experiment:
+        experiment = mlflow.get_experiment(experiment_id)
+        if verbose:
+            print(f"Name: {experiment.name}")
+            print(f"Experiment_id: {experiment.experiment_id}")
+            print(f"Artifact Location: {experiment.artifact_location}")
+            print(f"Tags: {experiment.tags}")
+            print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
+            print(f"Creation timestamp: {experiment.creation_time}")
+    return experiment
+
+        
+
 
