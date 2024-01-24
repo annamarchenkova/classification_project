@@ -568,5 +568,70 @@ def feature_importance_plot(model, figsize=(10,15), save=True, save_dir=FIGURES_
             os.path.join(save_dir, f'feature_importance_{prefix}.png'), 
             bbox_inches='tight'
             )
+
+##########################################################################################
+# -----------------------------  MODELLING, EXPLANATIONS  ------------------------------ #
         
+def calculate_cls_metrics(model, X_test, y_test, metrics_list='auto', verbose=True):
+    """_summary_
+
+    Args:
+        model (_type_): _description_
+        X_test (_type_): _description_
+        y_test (_type_): _description_
+        metrics (str, optional): _description_. Defaults to 'auto'. 
+        List of metrics to calculate.
+    """
+    y_pred = model.predict(X_test)
+    auto_metrics = ['balanced_accuracy', 'auc', 'f1', 'precision', 'recall']
+    if  metrics_list == 'auto':
+        metrics_list = auto_metrics
+        
+    else:
+        print("Available metrics: balanced_accuracy, auc, f1, precision, recall")
+        metrics_list = list(set(metrics_list).intersection(set(auto_metrics)))
+        
+    print(f"Calculating metrics: {metrics_list}")
+    metrics_dict = {k:None for k in metrics_list}
+    if 'balanced_accuracy' in metrics_list:
+        metrics_dict['balanced_accuracy'] = metrics.balanced_accuracy_score(y_test, y_pred)
+    if 'auc' in metrics_list:
+        metrics_dict['auc'] = metrics.roc_auc_score(y_test, y_pred)
+    if 'f1' in metrics_list:
+        metrics_dict['f1'] = metrics.f1_score(y_test, y_pred)
+    if 'precision' in metrics_list:
+        metrics_dict['precision'] = metrics.precision_score(y_test, y_pred)
+    if 'recall' in metrics_list:
+        metrics_dict['recall'] = metrics.recall_score(y_test, y_pred)
+
+    if verbose:
+        for metric_name, metric_score in metrics_dict.items():
+            print(f"{metric_name}:   {metric_score}")
+
+    return metrics_dict
+
+def calculate_shap(X, y, model, save=True, save_dir=FIGURES_DIR, prefix=''):
+    """calculate_shap values, save plot
+
+    Args:
+        X (_type_): train values
+        y (_type_): target values
+        model (_type_): _description_
+        save (bool, optional): _description_. Defaults to True.
+        save_dir (_type_, optional): _description_. Defaults to FIGURES_DIR.
+        prefix (str, optional): _description_. Defaults to ''.
+    """
+    cat_features = np.where(X.dtypes=='object')[0]
+
+    # SHAP VALUES FOR FEATURES 
+    shap_values = model.get_feature_importance(Pool(X, label=y, 
+                                                cat_features=cat_features), 
+                                                type="ShapValues")
+    shap_values = shap_values[:,:-1]
+    assert shap_values.shape[0] == X.shape[0]
+    if save:
+        if prefix == '':
+            prefix = str(dt.today().date())
+        save_shap_plot(X, shap_values, fig_path=save_dir, prefix=prefix)
+
 
