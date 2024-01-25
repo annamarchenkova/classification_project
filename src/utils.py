@@ -5,6 +5,9 @@ import joblib
 from datetime import datetime as dt
 from datetime import timedelta
 from typing import  List, Optional, Tuple
+import mlflow
+from pathlib import Path
+import optuna
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -568,6 +571,113 @@ def feature_importance_plot(model, figsize=(10,15), save=True, save_dir=FIGURES_
             os.path.join(save_dir, f'feature_importance_{prefix}.png'), 
             bbox_inches='tight'
             )
+
+def despine_ax(ax, right=False, top=False, left=False, bottom=True):
+    ax.spines['right'].set_visible(right)
+    ax.spines['top'].set_visible(top)
+    ax.spines['left'].set_visible(left)
+    ax.spines['bottom'].set_visible(bottom)
+
+def cardinality_plot(df, cat_cols, plot_n_most_frequent=20, figsize=(10,5), plot_kind='bar'):
+    for col in cat_cols:
+
+        most_freq = df[col].value_counts()[:plot_n_most_frequent]
+
+        fig, ax = plt.subplots(figsize=figsize)
+        most_freq.plot(kind=plot_kind, ax=ax)
+        despine_ax(ax)
+        plt.title(f"{col}; nunique: {df[col].nunique()}" )
+        plt.show()
+        plt.close()
+
+def distribution_plot(df, num_cols, figsize=(10,5), bins=100, kind='hist', pad=-20):
+    for col in num_cols:
+
+        fig, ax = plt.subplots(figsize=figsize)
+
+        df[[col]].plot(bins=bins, ax=ax, kind='hist')
+        despine_ax(ax)
+        plt.legend('')
+        plt.title(f"{col}", pad=pad)
+        plt.show()
+        plt.close()
+ 
+def plot_performance_curves(
+    model_list, 
+    test_list, 
+    test_target_list, 
+    perf_metrics_list,
+    save_plot=True, 
+    save_pdf=False,
+    save_path=FIGURES_DIR,
+    current_datetime='_'
+    ):
+    '''
+    perf_metrics_list: list of DataFrames with performance scores for evaluated metrics.
+    '''
+    
+    figsize = (20, 4*len(model_list))
+
+    fig, axes = plt.subplots(nrows=len(model_list), ncols=3, figsize=figsize)
+    fig.tight_layout()
+    fig.subplots_adjust(hspace=0.32, wspace=0.12)
+    
+    for idx, (model, test, test_target, perf_metrics_df) in enumerate(zip(model_list, test_list, test_target_list, perf_metrics_list)):
+    
+        predicted_probas = model.predict_proba(test)[:,1]
+
+        prec, rec, thresholds = metrics.precision_recall_curve(test_target, predicted_probas, pos_label=1)
+        fpr, tpr, _ = metrics.roc_curve(test_target, predicted_probas, pos_label=1, drop_intermediate=True)
+
+        try:
+            _  = axes.shape[1]
+            ax0 = axes[idx, 0]
+            ax1 = axes[idx, 1]
+            ax2 = axes[idx, 2]
+        except IndexError:
+            ax0 = axes[0]
+            ax1 = axes[1]
+            ax2 = axes[2]
+
+        perf_metrics = perf_metrics_df.to_dict()['score']
+
+        metrics.PrecisionRecallDisplay(precision=prec, recall=rec).plot(ax=ax0, color='green')
+        ax0.set_title(f"Precision-Recall curve - {2 * (1 + idx)} months", fontsize=15)
+        ax0.xaxis.label.set_size(14); ax0.yaxis.label.set_size(14)
+        ax0.scatter(perf_metrics['recall_score'], perf_metrics['precision_score'], c='k', s=30, zorder=2)
+        ax0.vlines(perf_metrics['recall_score'], ymin=0, ymax=perf_metrics['precision_score'], color='k', linestyle='--', linewidth=1)
+        ax0.hlines(perf_metrics['precision_score'], xmin=0, xmax=perf_metrics['recall_score'], color='k', linestyle='--', linewidth=1)
+        ax0.text(0.8, 0.8, f"Pre={perf_metrics['precision_score']:.1%}\nRec={perf_metrics['recall_score']:.1%}", fontsize=12)
+        ax0.tick_params(axis='both', which='major', labelsize=13)
+
+        ax1.plot(thresholds, prec[1:], label='Precision')
+        ax1.plot(thresholds, rec[1:], label='Recall')
+        ax1.scatter(0.5, perf_metrics['precision_score'], c='k', s=30, zorder=2)
+        ax1.scatter(0.5, perf_metrics['recall_score'], c='k', s=30, zorder=2)
+        ax1.vlines(0.5, ymin=0, ymax=perf_metrics['recall_score'], color='k', linestyle='--', linewidth=1)
+        ax1.set_xlabel("Threshold", fontsize=14); ax1.set_ylabel("Score", fontsize=14)
+        ax1.set_title(f"Precision vs. Recall - {2 * (1 + idx)} months", fontsize=15)
+        ax1.legend(loc='best', frameon=False)
+        ax1.tick_params(axis='both', which='major', labelsize=13)
+
+        metrics.RocCurveDisplay(tpr=tpr, fpr=fpr, roc_auc=perf_metrics['roc_auc_score'], estimator_name='Classifier').plot(ax=ax2, color='red')
+        ax2.axline([0, 0], [1, 1], linestyle='--', c='k', linewidth=1, label='Random guessing')
+        ax2.legend(loc='lower right', frameon=False)
+        ax2.set_title(f'ROC curve - {2 * (1 + idx)} months', fontsize=15)
+        ax2.xaxis.label.set_size(14); ax2.yaxis.label.set_size(14)
+        ax2.tick_params(axis='both', which='major', labelsize=13)
+        
+    if save_plot:
+        f_path_png = os.path.join(save_path, 'png', f'{current_datetime}_performances_test_set.png')
+        os.makedirs(os.path.join(save_path, 'png'), exist_ok=True)
+        plt.savefig(f_path_png, bbox_inches='tight')
+
+        if save_pdf:
+            f_path_pdf = os.path.join(save_path, 'pdf', f'{current_datetime}_performances_test_set.pdf')
+            os.makedirs(os.path.join(save_path, 'pdf'), exist_ok=True)
+            plt.savefig(f_path_pdf, bbox_inches='tight')
+        
+    # plt.show()
 
 ##########################################################################################
 # -----------------------------  MODELLING, EXPLANATIONS  ------------------------------ #
