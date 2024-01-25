@@ -1,0 +1,38 @@
+repos:
+    - repo: local
+      hooks:
+      - id: black
+        name: black
+        entry: black
+        language: python
+        types: [python]
+        language_version: python3
+        args: [--line-length=90]
+    - repo: local
+      hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        args: [--ignore-missing-imports, --namespace-packages, --show-error-codes, --pretty]
+    - repo: local
+      hooks:
+      - id: flake8
+        name: flake8
+        entry: flake8
+        language: system
+        types: [python]
+        args: [
+          --max-line-length=80,
+          "--ignore=E203,E501,W291, D104, D100, D401, E722, W503, E266, W605, E402"
+          ]
+
+#         args: [--max-line-length=120, --docstring-convention google, "--ignore=D100,D104,D212,W503,W605,E712,E731"]
+
+# D100 requires all Python files (modules) to have a "public" docstring even if all functions within have a docstring.
+# D104 requires __init__ files to have a docstring
+# W503 requires no binary operators just after a line feed, but that is how black auto-formats our long Spark commands
+# W605 doesn't allow `\d` escape sequences but they are useful in regex (where they are not actually escape sequences)
+# E712 requires alternative syntax for conditionals that isn't Spark compatible
+# E731 does not allow for lambda expressions
