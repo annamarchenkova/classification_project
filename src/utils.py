@@ -39,8 +39,9 @@ def load_config(cnf_dir: str = PROJECT_DIR, cnf_name: str = "config.yml") -> dic
     Returns:
         dict: Dictionary containing configuration data.
     """
-    config_file = open(os.path.join(cnf_dir, cnf_name))
-    return yaml.load(config_file, yaml.FullLoader)
+    with open(os.path.join(cnf_dir, cnf_name), encoding="utf-8") as f:
+        config_file = yaml.load(f, yaml.FullLoader)
+    return config_file
 
 
 def get_cols_too_similar(
