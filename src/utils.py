@@ -24,6 +24,8 @@ from project_dirs import (
     FIGURES_DIR,
 )
 
+logging.basicConfig(level=logging.INFO)
+
 ##########################################################################################
 # ---------------------------------  DS PREPROCESSING  ---------------------------------- #
 
