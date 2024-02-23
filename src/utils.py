@@ -172,7 +172,7 @@ def get_non_collinear_features_from_vif(
     if idx >= len(num_features):
         return df.columns.to_list()
     else:
-        print("\rProcessing feature {}/{}".format(idx + 1, len(num_features)), end="")
+        logging.info("Processing feature %s/%s", idx + 1, len(num_features))
         vif_ = variance_inflation_factor(df, idx)
         if vif_ > vif_threshold:
             df.drop(num_features[idx], axis=1, inplace=True)
@@ -883,10 +883,10 @@ def calculate_cls_metrics(model, X_test, y_test, metrics_list="auto", verbose=Tr
         metrics_list = auto_metrics
 
     else:
-        print("Available metrics: balanced_accuracy, auc, f1, precision, recall")
+        logging.info("Available metrics: balanced_accuracy, auc, f1, precision, recall")
         metrics_list = list(set(metrics_list).intersection(set(auto_metrics)))
 
-    print(f"Calculating metrics: {metrics_list}")
+    logging.info("Calculating metrics: %s", metrics_list)
     metrics_dict = {k: None for k in metrics_list}
     if "balanced_accuracy" in metrics_list:
         metrics_dict["balanced_accuracy"] = metrics.balanced_accuracy_score(
@@ -903,7 +903,7 @@ def calculate_cls_metrics(model, X_test, y_test, metrics_list="auto", verbose=Tr
 
     if verbose:
         for metric_name, metric_score in metrics_dict.items():
-            print(f"{metric_name}:   {metric_score}")
+            logging.info("%s:   %s", metric_name, metric_score)
 
     return metrics_dict
 
@@ -951,18 +951,19 @@ def get_mlflow_experiment(experiment_name, create=True, verbose=True):
                 tags={"version": "v1", "priority": "P1"},
             )
         else:
-            print(
-                f"Experiment {experiment_name} does not exist. To create it put create=True"
+            logging.info(
+                "Experiment %s does not exist. To create it put create=True",
+                experiment_name,
             )
             return None
 
     if experiment:
         experiment = mlflow.get_experiment(experiment_id)
         if verbose:
-            print(f"Name: {experiment.name}")
-            print(f"Experiment_id: {experiment.experiment_id}")
-            print(f"Artifact Location: {experiment.artifact_location}")
-            print(f"Tags: {experiment.tags}")
-            print(f"Lifecycle_stage: {experiment.lifecycle_stage}")
-            print(f"Creation timestamp: {experiment.creation_time}")
+            logging.info("Name: %s", experiment.name)
+            logging.info("Experiment_id: %s", experiment.experiment_id)
+            logging.info("Artifact Location: %s", experiment.artifact_location)
+            logging.info("Tags: %s", experiment.tags)
+            logging.info("Lifecycle_stage: %s", experiment.lifecycle_stage)
+            logging.info("Creation timestamp: %s", experiment.creation_time)
     return experiment
